@@ -603,7 +603,7 @@ function viewNow(){
   else if(h.tide!=null){ const nx=D.hours[Math.min(D.nowIdx+1,D.hours.length-1)].tide; tide=(h.tide>=0?'+':'')+h.tide.toFixed(2)+' m'; tideS = nx==null?'':nx>h.tide?'Rising ↑':'Falling ↓'; }
   const verdictTxt = r.score>=3.5 ? `Go sail! Rig ${g.qSail||g.sail} m²` : r.score>=2.5 ? `Sailable — rig ${g.qSail||g.sail} m²` : r.score>=1.5 ? 'Marginal — big kit or foil' : r.score>=0.5 ? 'Light / not ideal' : (h.day?'No go right now':'After dark');
   const nextWin = D.wins[0];
-  let o = alertBanner();
+  let o = updateBanner() + alertBanner();
   const ob = nearestObs();
   o += `<div class="card hero">
     <div class="row">
@@ -798,25 +798,30 @@ function viewGear(){
 
 function viewSources(){
   const sp=spot(); const L=links[sp.id]||{};
-  let o=`<div class="card"><h3>Your apps <small>${esc(sp.name)}</small></h3>${SOURCES.map(s=>{
+  let o=`<div class="card"><h3>Your sources, inside WindLine <small>${esc(sp.name)}</small></h3>${SOURCES.map(s=>{
     const has = inApp() && (()=>{try{return Android.hasApp(s.app);}catch(e){return false;}})();
     const saved = L[s.key];
     return `<div class="src"><div class="lg" style="background:${s.color};color:${s.tx}">${s.lg}</div>
       <div class="tx"><b>${esc(s.name)}</b><small>${saved?'🔗 '+esc(saved.replace(/^https?:\/\//,'')):esc(s.desc)}${has?' · installed':''}</small></div>
       <button class="btn ghost" style="padding:9px 10px" onclick="editLink('${s.key}')" aria-label="Link">🔗</button>
-      <button class="btn" onclick="openSource('${s.key}')">Open</button></div>`; }).join('')}
-    <div class="note" style="margin-top:10px">Tap 🔗 to save this spot's page from each app (copy its share link). "Open" then jumps straight to ${esc(sp.name)}; otherwise it opens the app's home screen.</div></div>`;
+      <button class="btn" onclick="viewSource('${s.key}')">View</button></div>`; }).join('')}
+    <div class="note" style="margin-top:10px"><b style="color:var(--tx)">View</b> opens each site inside WindLine${inApp()?'':' (in a new tab on the web)'}. Tap 🔗 once to save that site's page for ${esc(sp.name)} and View goes straight to it. Most of their data — model forecasts, live stations, the marine forecast, tides — is already built into WindLine.</div></div>`;
   o+=`<div class="card"><h3>Data inside WindLine</h3>
     ${MODELS.filter(m=>S.models.includes(m.id)).map(m=>`<div class="mrow"><div class="sw" style="background:${m.color}"></div><div class="nm">${esc(m.name)}<small>${esc(m.by)}</small></div><span class="note">wind · gust · dir</span></div>`).join('')}
     <div class="mrow"><div class="sw" style="background:#2EE6C5"></div><div class="nm">Open-Meteo Marine<small>Waves, swell, sea temp, sea level</small></div></div>
     <div class="mrow"><div class="sw" style="background:#FFB84C"></div><div class="nm">Open-Meteo Weather<small>Temp, rain, cloud, UV, sunrise/sunset</small></div></div>
-    <div class="note" style="margin-top:10px">Windguru, Windfinder, iGetWind, Bigwave Dave and WeatherXL don't offer public data feeds, so WindLine pulls the underlying forecast models directly and links out to each app for their live stations, cams and reports.</div></div>`;
+    <div class="note" style="margin-top:10px">WindLine builds in the same forecast models these apps use, plus Environment Canada stations, buoys, warnings and marine forecasts, official tides and wind alerts. Windguru, Windfinder, iGetWind, Bigwave Dave and WeatherXL don't offer public data feeds, so their own pages open inside WindLine when you want them.</div></div>`;
   o+=`<div class="card"><h3>Official</h3>
-    <div class="src"><div class="lg" style="background:#D52B1E;color:#fff">⚠︎</div><div class="tx"><b>Marine weather warnings</b><small>Environment Canada · Pacific</small></div><button class="btn" onclick="openUrl('https://weather.gc.ca/marine/index_e.html')">Open</button></div>
-    <div class="src"><div class="lg" style="background:#123a52;color:#2EE6C5">≈</div><div class="tx"><b>Tide tables</b><small>Fisheries &amp; Oceans Canada</small></div><button class="btn" onclick="openUrl('https://www.tides.gc.ca/en/stations')">Open</button></div>
-    <div class="src"><div class="lg" style="background:#123a52;color:#FFB84C">◎</div><div class="tx"><b>Live wind map</b><small>Windy.com at this spot</small></div><button class="btn" onclick="openUrl('https://www.windy.com/${sp.lat}/${sp.lon}?${sp.lat},${sp.lon},11')">Open</button></div>
+    <div class="src"><div class="lg" style="background:#D52B1E;color:#fff">⚠︎</div><div class="tx"><b>Marine weather warnings</b><small>Environment Canada · Pacific</small></div><button class="btn" onclick="viewIn('https://weather.gc.ca/marine/index_e.html')">Open</button></div>
+    <div class="src"><div class="lg" style="background:#123a52;color:#2EE6C5">≈</div><div class="tx"><b>Tide tables</b><small>Fisheries &amp; Oceans Canada</small></div><button class="btn" onclick="viewIn('https://www.tides.gc.ca/en/stations')">Open</button></div>
+    <div class="src"><div class="lg" style="background:#123a52;color:#FFB84C">◎</div><div class="tx"><b>Live wind map</b><small>Windy.com at this spot</small></div><button class="btn" onclick="viewIn('https://www.windy.com/${sp.lat}/${sp.lon}?${sp.lat},${sp.lon},11')">Open</button></div>
   </div>`;
   return o;
+}
+function viewSource(key){
+  const s=SOURCES.find(x=>x.key===key), sp=spot(), saved=(links[sp.id]||{})[key];
+  if(key==='weatherxl' && !saved){ openSource(key); return; }
+  viewIn(saved||s.url, s.name+(saved?' · '+sp.name:''));
 }
 function openSource(key){
   const s=SOURCES.find(x=>x.key===key), sp=spot(), saved=(links[sp.id]||{})[key];
@@ -857,7 +862,7 @@ function renderSpots(){
     <div class="field"><label>Beach faces (direction toward the water)</label><select id="nsFace">${FACES.map(f=>`<option value="${f[0]}">${f[1]}</option>`).join('')}</select><div class="hint">Used to flag onshore / cross-shore / offshore wind. Tip: long-press the spot in Google Maps to copy its coordinates.</div></div>
     <button class="btn full" onclick="addSpot()">Add spot</button>`;
 }
-function pickSpot(id){ spotId=id; LS.set('spot',id); closeSheets(); D=null; gearHour=null; load(false); }
+function pickSpot(id){ spotId=id; LS.set('spot',id); setTimeout(syncNative,0); closeSheets(); D=null; gearHour=null; load(false); }
 function delSpot(id){ customSpots=customSpots.filter(s=>s.id!==id); LS.set('customSpots',customSpots); if(spotId===id) pickSpot('jericho'); else renderSpots(); }
 function addSpot(){
   const name=$('nsName').value.trim(), lat=parseFloat($('nsLat').value), lon=parseFloat($('nsLon').value), f=$('nsFace').value;
@@ -890,7 +895,7 @@ function renderSettings(){
       <div class="field"><label>Temperature</label>${sel('stT',[['C','°C'],['F','°F']],S.temp)}</div></div>
     <div class="sec">Forecast models</div>
     ${MODELS.map(m=>`<label class="check"><input type="checkbox" value="${m.id}" class="stM" ${S.models.includes(m.id)?'checked':''}><span style="width:10px;height:10px;border-radius:3px;background:${m.color}"></span>${esc(m.name)} <span class="note">· ${esc(m.by)}</span></label>`).join('')}
-    <div class="note" style="margin:16px 0 4px">WindLine 1.1 · forecast data by Open-Meteo.com (CC BY 4.0). Gear suggestions are guidance only — always judge conditions on the beach.</div>`;
+    <div class="note" style="margin:16px 0 4px">WindLine 1.3 · Developed by Apaar · <a class="lnk" href="https://ko-fi.com/apaar" onclick="openUrl(this.href);return false">Support on Ko-fi</a><br>Forecast data by Open-Meteo.com (CC BY 4.0). Gear suggestions are guidance only — always judge conditions on the beach.</div>`;
 }
 function saveSettings(){
   const num=(id,d)=>{ const v=parseFloat($(id).value); return isNaN(v)?d:v; };
@@ -907,7 +912,7 @@ function saveSettings(){
     const vol=parseFloat(p[p.length-1]); const name=p.length>1?p.slice(0,-1).join(', '):(vol+' L'); return isNaN(vol)?null:{name,vol,type};}).filter(Boolean);
   const ms=[...document.querySelectorAll('.stM:checked')].map(x=>x.value); const modelsChanged = ms.join()!==S.models.join();
   S.models = ms.length?ms:DEFAULTS.models;
-  LS.set('settings',S); closeSheets(); toast('Settings saved');
+  LS.set('settings',S); closeSheets(); toast('Settings saved'); syncNative();
   if(modelsChanged) load(true); else { if(D) D=reprocess(); render(); }
 }
 function reprocess(){ return D && D.raw ? Object.assign(process(D.raw,D.sp),{raw:D.raw,offline:D.offline}) : D; }
@@ -1035,23 +1040,24 @@ function viewSpot(){
   let o = alertBanner();
   if(x.alerts && x.alerts.length){
     o+=`<div class="card"><h3>Weather alerts <small>Environment Canada</small></h3>${x.alerts.map(a=>`<div style="margin-bottom:12px"><b>${esc(a.name)}</b><div class="note" style="margin-top:4px;white-space:pre-line">${esc((a.text||'').slice(0,600))}${(a.text||'').length>600?'…':''}</div></div>`).join('')}
-      <button class="btn ghost full" onclick="openUrl('https://weather.gc.ca/?lang=en')">All alerts on weather.gc.ca</button></div>`;
+      <button class="btn ghost full" onclick="viewIn('https://weather.gc.ca/?lang=en')">All alerts on weather.gc.ca</button></div>`;
   }
   // live stations
-  o+=`<div class="card"><h3>Live wind stations <small>Environment Canada</small></h3>`;
-  if(x.obs && x.obs.length){
-    o+=x.obs.map(r=>`<div class="obs"><div class="w" style="background:${windColor(r.ws)};color:${textOn(r.ws)}">${wv(r.ws)}<small>${r.wg!=null?'G '+wv(r.wg):wu()}</small></div>
-      <div style="flex:1"><b>${esc(r.name)}</b><div class="note">${r.wd!=null?dirName(r.wd)+' '+Math.round(r.wd)+'° · ':''}${r.km!=null?Math.round(r.km)+' km away · ':''}${obsAge(r)}${r.temp!=null?' · '+tv(r.temp)+tu():''}</div></div>${arrowSvg(r.wd,22,'#9DB4C8')}</div>`).join('');
+  o+=`<div class="card"><h3>Live wind <small>Env. Canada stations & buoys</small></h3>`;
+  const OBS=allObs();
+  if(OBS.length){
+    o+=OBS.map(r=>`<div class="obs"><div class="w" style="background:${windColor(r.ws)};color:${textOn(r.ws)}">${wv(r.ws)}<small>${r.wg!=null?'G '+wv(r.wg):wu()}</small></div>
+      <div style="flex:1"><b>${esc(r.name)}</b><div class="note">${r.wd!=null?dirName(r.wd)+' '+Math.round(r.wd)+'° · ':''}${r.km!=null?Math.round(r.km)+' km · ':''}${obsAge(r)}${r.wave!=null?' · waves '+r.wave.toFixed(1)+' m':''}${r.temp!=null?' · '+tv(r.temp)+tu():''}</div></div>${arrowSvg(r.wd,22,'#9DB4C8')}</div>`).join('');
     o+=`<div class="note" style="margin-top:8px">Measured 10-minute averages. Compare with the forecast to see if a model is running high or low today.</div>`;
   } else if(x.busy || x.obs===undefined) o+=`<div class="note">Loading station data…</div>`;
   else o+=`<div class="note">No live stations reporting near this spot right now.</div>`;
-  o+=`<button class="btn ghost full" style="margin-top:10px" onclick="openUrl('https://weather.gc.ca/marine/weatherConditions-regionalSummary_e.html?mapID=02')">Marine conditions summary · Pacific South Coast</button></div>`;
+  o+=`<button class="btn ghost full" style="margin-top:10px" onclick="viewIn('https://weather.gc.ca/marine/weatherConditions-regionalSummary_e.html?mapID=02')">Marine conditions summary · Pacific South Coast</button></div>`;
   // webcams
   const cams = I.cams||[];
   o+=`<div class="card" id="cams"><h3>Live webcams <small>${cams.length?cams.length+' near this spot':'none listed'}</small></h3>
     ${cams.filter(c=>c.windy).map(c=>camEmbed(c)).join('')}
     ${cams.map((c,i)=>`<button class="cam" onclick="openCam('${sp.id}',${i})"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2EE6C5" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg></span><span style="flex:1"><b>${esc(c.name)}</b><small>${esc(c.by)} · ${c.windy?'full screen':'watch live'}</small></span><span style="color:var(--tx3)">›</span></button>`).join('')}
-    <button class="cam" onclick="openUrl('https://www.windy.com/${sp.lat}/${sp.lon}?${sp.lat},${sp.lon},11')"><span class="ic" style="background:#2a2f45"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FFB84C" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span><span style="flex:1"><b>Find more cams on the map</b><small>Windy.com · switch on the Webcams layer</small></span><span style="color:var(--tx3)">›</span></button></div>`;
+    <button class="cam" onclick="viewIn('https://www.windy.com/${sp.lat}/${sp.lon}?${sp.lat},${sp.lon},11')"><span class="ic" style="background:#2a2f45"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FFB84C" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span><span style="flex:1"><b>Find more cams on the map</b><small>Windy.com · switch on the Webcams layer</small></span><span style="color:var(--tx3)">›</span></button></div>`;
   // tides
   const T=x.tides;
   o+=`<div class="card"><h3>Tides <small>${T?esc(T.station)+' · CHS':(tideStationFor(sp)?'':'no tide station')}</small></h3>`;
@@ -1061,29 +1067,37 @@ function viewSpot(){
       <div class="note" style="margin-top:8px">Official predictions, Canadian Hydrographic Service (Fisheries and Oceans Canada). Heights above chart datum.</div>`;
   } else if(tideStationFor(sp)) o+= (x.busy||x.tides===undefined) ? `<div class="note">Loading tide predictions…</div>` : `<div class="note">Couldn't load official tides right now.</div>`;
   else o+=`<div class="note">No Canadian tide station near this spot.</div>`;
-  if(tideStationFor(sp)) o+=`<button class="btn ghost full" style="margin-top:10px" onclick="openUrl('https://www.tides.gc.ca/en/stations')">Full tide tables · tides.gc.ca</button>`;
+  if(tideStationFor(sp)) o+=`<button class="btn ghost full" style="margin-top:10px" onclick="viewIn('https://www.tides.gc.ca/en/stations')">Full tide tables · tides.gc.ca</button>`;
   o+=`</div>`;
   // spot guide
   if((I.guide&&I.guide.length) || I.site){
     o+=`<div class="card"><h3>Spot guide <small>${sp.facing!=null?'beach faces '+dirName(sp.facing):''}</small></h3>${I.guide?`<ul class="guide">${I.guide.map(g=>`<li>${esc(g)}</li>`).join('')}</ul>`:''}
-      ${I.site?`<button class="btn ghost full" onclick="openUrl('${esc(I.site.url)}')">${esc(I.site.name)}</button>`:''}
+      ${I.site?`<button class="btn ghost full" onclick="viewIn('${esc(I.site.url)}')">${esc(I.site.name)}</button>`:''}
       <div class="note" style="margin-top:8px">Local rules and access change — confirm on site before you launch.</div></div>`;
   }
   // water + air quality
   o+=`<div class="card"><h3>Water &amp; air quality</h3>`;
   if(x.aqhi) o+=`<div class="mrow"><div class="sw" style="background:${x.aqhi.aqhi<=3?'#3FD17A':x.aqhi.aqhi<=6?'#F2B632':x.aqhi.aqhi<=10?'#FF5A5F':'#b0308f'}"></div><div class="nm">Air Quality Health Index<small>${esc(x.aqhi.name||'')} · Environment Canada</small></div><b>${Math.round(x.aqhi.aqhi)}</b><span class="note" style="width:70px;text-align:right">${x.aqhi.aqhi<=3?'Low risk':x.aqhi.aqhi<=6?'Moderate':x.aqhi.aqhi<=10?'High risk':'Very high'}</span></div>`;
-  (I.wq||[]).forEach(w=>{ o+=`<div class="mrow"><div class="sw" style="background:#4CA8FF"></div><div class="nm">${esc(w.name)}<small>Bacteria (E. coli) sampling, mainly May–Sept</small></div><button class="btn ghost" style="padding:7px 12px" onclick="openUrl('${esc(w.url)}')">Check</button></div>`; });
+  (I.wq||[]).forEach(w=>{ o+=`<div class="mrow"><div class="sw" style="background:#4CA8FF"></div><div class="nm">${esc(w.name)}<small>Bacteria (E. coli) sampling, mainly May–Sept</small></div><button class="btn ghost" style="padding:7px 12px" onclick="viewIn('${esc(w.url)}')">Check</button></div>`; });
   if(!x.aqhi && !(I.wq||[]).length) o+=`<div class="note">No water or air quality data for this spot.</div>`;
   o+=`</div>`;
-  o+=`<div class="card"><h3>Marine forecast</h3><div class="note" style="margin-bottom:10px">Gale and strong-wind warnings for the water are issued in the official marine forecast.</div>
-    <button class="btn full" onclick="openUrl('https://weather.gc.ca/marine/index_e.html')">Environment Canada marine forecast</button></div>`;
+  const M=x.marine;
+  o+=`<div class="card"><h3>Marine forecast <small>${M?esc(M.area):'Environment Canada'}</small></h3>`;
+  if(M && (M.warn.length||M.fc.length)){
+    o+=M.warn.map(w=>`<div class="warnbox" style="margin:0 0 10px"><b style="color:#fff">${esc(w.title)}</b>${w.summary?'<div style="margin-top:4px;white-space:pre-line">'+esc(w.summary)+'</div>':''}</div>`).join('');
+    o+=M.fc.map(f=>`<div style="margin-bottom:12px"><b style="font-size:14px">${esc(f.title.replace(/ - .*$/,''))}</b><div class="note" style="margin-top:4px;white-space:pre-line;color:var(--tx2);font-size:13px">${esc(f.summary)}</div></div>`).join('');
+  } else if(marineFeedFor(sp)) o+=`<div class="note" style="margin-bottom:10px">${x.marine===undefined?'Loading the official marine forecast…':'Couldn\'t load the marine forecast here.'}</div>`;
+  else o+=`<div class="note" style="margin-bottom:10px">No Canadian marine forecast area for this spot.</div>`;
+  o+=`<button class="btn ghost full" onclick="viewIn('${M?esc(M.link):'https://weather.gc.ca/marine/index_e.html'}','Marine forecast')">Full marine forecast</button></div>`;
+  // EC city forecast
+  if(x.city){ o+=`<div class="card"><h3>Weather forecast <small>Env. Canada · ${esc(x.city.name)}</small></h3>${x.city.fc.map(f=>`<div style="margin-bottom:10px"><b style="font-size:14px">${esc(f.name)}</b><div class="note" style="margin-top:3px;color:var(--tx2);font-size:13px">${esc(f.text)}</div></div>`).join('')}</div>`; }
   return o;
 }
 
 /* ============================== MORE VIEW: log, apps, safety, about ============================== */
 let LOG = LS.get('log', []);
 function viewMore(){
-  let o='';
+  let o=viewAlerts();
   // session log
   const yr=new Date().getFullYear(); const ys=LOG.filter(l=>l.date.startsWith(String(yr)));
   const hrs=ys.reduce((a,l)=>a+(+l.hours||0),0);
@@ -1109,13 +1123,20 @@ function viewMore(){
       <li>Cold water: dress for the water temperature, not the air. If you fall in, the first minute of cold shock is the most dangerous, so control your breathing before you swim.</li>
       <li>Never sail in offshore wind without a rescue boat. If your gear breaks, stay with your board: it floats and it's easier to spot.</li>
       <li>Keep clear of ships, ferries and anchored freighters. They can't stop or turn quickly.</li></ul></div>`;
+  // maker
+  o+=`<div class="card" style="background:radial-gradient(120% 140% at 100% 0%,#3a2a12 0%,#0F2236 60%);border-color:#4a3a1e">
+    <div style="display:flex;align-items:center;gap:14px"><img src="icon.png" alt="" style="width:52px;height:52px;border-radius:14px">
+    <div style="flex:1"><div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--sun);font-weight:700">Made by Apaar</div>
+    <div style="font-size:15px;margin-top:3px">WindLine is free. If it gets you on the water, you can buy Apaar a coffee.</div></div></div>
+    <button class="btn full" style="margin-top:12px;background:#FFB84C;color:#2a1a00" onclick="openUrl('https://ko-fi.com/apaar')">☕ Support on Ko-fi</button>
+    <div class="note" style="text-align:center;margin-top:8px">ko-fi.com/apaar</div></div>`;
   // about
   o+=`<div class="card"><h3>Data &amp; credits</h3><div class="note" style="line-height:1.7">
     Forecast models (GEM/HRDPS, ECMWF, GFS, ICON and others) and marine data: <a class="lnk" href="https://open-meteo.com/" onclick="openUrl(this.href);return false">Open-Meteo.com</a> (CC BY 4.0)<br>
     Live stations, weather alerts and air quality: Environment and Climate Change Canada, MSC GeoMet (Open Government Licence – Canada)<br>
     Tides: Canadian Hydrographic Service, Fisheries and Oceans Canada<br>
     Webcams belong to their owners and open on their own sites.<br><br>
-    WindLine ${inApp()?'app':'web'} · v1.2 · Forecasts and gear suggestions are guidance only. Always judge conditions on the beach.</div>
+    WindLine ${inApp()?'app':'web'} · v1.3 · Developed by Apaar · <a class="lnk" href="https://ko-fi.com/apaar" onclick="openUrl(this.href);return false">ko-fi.com/apaar</a><br>Forecasts and gear suggestions are guidance only. Always judge conditions on the beach.</div>
     <button class="btn ghost full" style="margin-top:10px" onclick="shareNow()">Share today's conditions</button></div>`;
   return o;
 }
@@ -1153,6 +1174,159 @@ function shareNow(){
   copyText(t,'Copied to clipboard');
 }
 
+/* ============================== v1.3: ONE-APP INTEGRATIONS ============================== */
+// --- Environment Canada marine forecast (Atom feeds) ---
+function marineFeedFor(sp){
+  if(sp.id==='squamish' || (sp.lat>49.4 && sp.lat<49.8 && sp.lon>-123.6 && sp.lon<-123.0)) return {id:'06400', area:'Howe Sound', filter:null};
+  if(sp.lat>48.8 && sp.lat<49.6 && sp.lon>-124.2 && sp.lon<-122.6) return {id:'14300', area:'Strait of Georgia – south of Nanaimo', filter:'south of Nanaimo'};
+  return null;
+}
+async function loadMarine(sp){
+  const F=marineFeedFor(sp); if(!F) return null;
+  const ctl=new AbortController(); const to=setTimeout(()=>ctl.abort(),15000);
+  const txt=await (await fetch(`https://weather.gc.ca/rss/marine/${F.id}_e.xml`,{signal:ctl.signal})).text(); clearTimeout(to);
+  const doc=new DOMParser().parseFromString(txt,'application/xml');
+  const unhtml=s=>{ const d=document.createElement('div'); d.innerHTML=(s||'').replace(/<br\s*\/?>/gi,'\n'); return d.textContent.replace(/\n{2,}/g,'\n').trim(); };
+  const entries=[...doc.getElementsByTagName('entry')].map(e=>({
+    title:(e.getElementsByTagName('title')[0]||{}).textContent||'',
+    summary:unhtml((e.getElementsByTagName('summary')[0]||{}).textContent||''),
+    cat:((e.getElementsByTagName('category')[0]||{getAttribute:()=>''}).getAttribute('term'))||'',
+    link:((e.getElementsByTagName('link')[0]||{getAttribute:()=>''}).getAttribute('href'))||''
+  })).filter(e=>!F.filter || e.title.includes(F.filter));
+  const warn=entries.filter(e=>/warning|watch/i.test(e.cat) && !/no watches or warnings/i.test(e.title));
+  return {area:F.area, warn, fc:entries.filter(e=>/Forecast for|Waves for|Extended/i.test(e.title)), link:(entries[0]&&entries[0].link)||'https://weather.gc.ca/marine/index_e.html'};
+}
+// --- NOAA/ECCC buoys (Halibut Bank, English Bay, Sentry Shoal) ---
+const BUOYS=[{id:'46146',name:'Halibut Bank buoy',lat:49.34,lon:-123.73},{id:'46304',name:'English Bay buoy',lat:49.30,lon:-123.36},{id:'46131',name:'Sentry Shoal buoy',lat:49.91,lon:-124.99}];
+async function loadBuoys(sp){
+  const near=BUOYS.map(b=>Object.assign({},b,{km:km(sp,b)})).filter(b=>b.km<90).sort((a,b)=>a.km-b.km).slice(0,2);
+  const out=[];
+  await Promise.all(near.map(async b=>{
+    try{
+      const ctl=new AbortController(); const to=setTimeout(()=>ctl.abort(),12000);
+      const t=await (await fetch(`https://www.ndbc.noaa.gov/data/realtime2/${b.id}.txt`,{signal:ctl.signal})).text(); clearTimeout(to);
+      const L=t.split('\n'); const H=L[0].replace('#','').trim().split(/\s+/);
+      for(let i=2;i<Math.min(L.length,8);i++){ const v=L[i].trim().split(/\s+/); if(v.length<8) continue;
+        const g=k=>{ const x=v[H.indexOf(k)]; return x==null||x==='MM'?null:+x; };
+        const ws=g('WSPD'); if(ws==null) continue;
+        const ts=Date.UTC(+v[0],+v[1]-1,+v[2],+v[3],+v[4]);
+        if(Date.now()-ts>4*3600e3) break;
+        out.push({name:b.name, buoy:true, km:b.km, t:ts, ws:ws*1.94384, wg:g('GST')!=null?g('GST')*1.94384:null, wd:g('WDIR'), temp:g('ATMP'), wave:g('WVHT'), sst:g('WTMP')}); break; }
+    }catch(e){}
+  }));
+  return out;
+}
+// --- Environment Canada city forecast text ---
+const en = x => x==null ? '' : typeof x==='string'||typeof x==='number' ? String(x) : (x.en!=null ? (typeof x.en==='object'? en(x.en) : String(x.en)) : (x.value!=null? en(x.value) : ''));
+async function loadCity(sp){
+  const bb=[sp.lon-0.6,sp.lat-0.4,sp.lon+0.6,sp.lat+0.4].map(x=>x.toFixed(3)).join(',');
+  const j=await getJSON(`https://api.weather.gc.ca/collections/citypageweather-realtime/items?f=json&lang=en&bbox=${bb}&limit=15`);
+  const fs=(j.features||[]).map(f=>({f,k:f.geometry?km(sp,{lat:f.geometry.coordinates[1],lon:f.geometry.coordinates[0]}):999})).sort((a,b)=>a.k-b.k);
+  if(!fs.length) return null; const p=fs[0].f.properties||{};
+  const fc=((p.forecastGroup||{}).forecasts||[]).slice(0,4).map(x=>({name:en((x.period||{}).textForecastName)||en(x.period), text:en(x.textSummary)})).filter(x=>x.text);
+  const name=en(p.name)||en((p.location||{}).name)||'Nearest city';
+  return fc.length?{name, fc}:null;
+}
+// hook into extras loader
+const _loadExtras = loadExtras;
+loadExtras = async function(sp, force){
+  const x = X[sp.id] = X[sp.id] || {};
+  const fresh = !force && x.at13 && Date.now()-x.at13<10*60000;
+  const p1 = _loadExtras(sp, force);
+  if(!fresh){
+    x.at13=Date.now();
+    const t={marine:loadMarine(sp), buoys:loadBuoys(sp), city:loadCity(sp)};
+    await Promise.all(Object.entries(t).map(([k,p])=>p.then(v=>{x[k]=v;}).catch(()=>{ if(x[k]===undefined) x[k]=null; })));
+    if(spot().id===sp.id) render();
+  }
+  await p1;
+};
+// live stations now include buoys
+const _nearestObs = nearestObs;
+nearestObs = function(){ const o=allObs(); return o.length?o[0]:null; };
+function allObs(){ const x=XX(); return [...(x.obs||[]), ...(x.buoys||[])].sort((a,b)=>(a.km||0)-(b.km||0)); }
+// marine warnings join the alert banner
+const _alertBanner = alertBanner;
+alertBanner = function(){
+  let o=_alertBanner(); const M=XX().marine;
+  if(M && M.warn.length) o+=M.warn.slice(0,2).map(w=>`<div class="alertbar red" onclick="go('spot')"><span style="font-size:18px">⚓</span><div><b>${esc(w.title.replace(/,.*$/,''))}</b>Marine · ${esc(M.area)}</div></div>`).join('');
+  return o;
+};
+
+// --- Wind alerts (native notifications) ---
+let ALERTS = LS.get('alerts', null);
+if(ALERTS===null){ ALERTS=[]; }
+const SECT=['N','NE','E','SE','S','SW','W','NW'];
+function syncNative(){
+  if(!inApp() || !Android.setConfig) return;
+  const sp=spot();
+  const cfg={kg:kg(), unit:S.unit, minWind:S.minWind, sails:S.sails, styleF:({freeride:1,slalom:1.1,wave:.86,freestyle:.9,foil:.92})[S.style]||1,
+    maxSail:S.skill==='beginner'?Math.min(6,kg()*0.075):10, everyHours:3,
+    widget:{name:sp.name, lat:sp.lat, lon:sp.lon},
+    alerts:ALERTS.map((a,i)=>{ const s=allSpots().find(x=>x.id===a.spot)||(a.spot==='here'?LS.get('hereSpot',null):null); return s?{id:a.id,nid:200+i,name:'Wind at '+s.name,lat:s.lat,lon:s.lon,min:a.min,max:a.max,dirs:a.dirs,days:a.days,on:a.on!==false}:null; }).filter(Boolean)};
+  try{ Android.setConfig(JSON.stringify(cfg)); }catch(e){}
+}
+function pushWidget(){
+  if(!inApp() || !Android.widgetData || !D) return;
+  const h=D.hours[D.nowIdx], c=D.current||{}, ws=c.wind_speed_10m!=null?c.wind_speed_10m:h.ws, wg=c.wind_gusts_10m!=null?c.wind_gusts_10m:h.wg, g=gearFor(ws,wg), w=D.wins[0];
+  const gear = ws>=S.minWind-3 ? `Rig ${g.qSail||g.sail} m² · ${g.qBoard?g.qBoard.vol:g.vol} L` : (w?`Next: ${dayLabel(D.hours[w.start].t).split(' ')[0]} ${hourLabel(D.hours[w.start].p.h)} · ${wv(w.avg)} ${wu()}`:'Light wind');
+  try{ Android.widgetData(JSON.stringify({name:D.sp.name, wind:String(wv(ws)), unit:wu(), kn:ws, detail:`Gusts ${wv(wg)} · ${dirName(h.wd)} · ${h.label}`, gear, at:Date.now()})); }catch(e){}
+}
+function viewAlerts(){
+  let o=`<div class="card" id="alertsCard"><h3>Wind alerts <small>${inApp()?'push notifications':'Android app only'}</small></h3>`;
+  if(!inApp()) o+=`<div class="note" style="margin-bottom:10px">Alerts arrive as phone notifications from the WindLine Android app, even when it's closed. On the website you can set them up, but they only fire in the app.</div>`;
+  o+= ALERTS.length ? ALERTS.map((a,i)=>{ const s=allSpots().find(x=>x.id===a.spot)||{name:a.spot==='here'?'My location':a.spot};
+      return `<div class="lrow"><div style="flex:1"><b>${esc(s.name)}</b><div class="note">${wv(a.min)}–${wv(a.max)} ${wu()} · ${a.dirs&&a.dirs.length?a.dirs.map(d=>SECT[d]).join(' '):'any direction'} · next ${a.days} day${a.days>1?'s':''} · daylight</div></div>
+        <button class="chip ${a.on!==false?'on':''}" onclick="toggleAlert(${i})">${a.on!==false?'On':'Off'}</button><button class="btn ghost" style="padding:6px 9px" onclick="delAlert(${i})">✕</button></div>`; }).join('')
+    : `<div class="note">No alerts yet. Get a notification when your spot is forecast to blow from the right direction, in daylight, for at least 2 hours.</div>`;
+  o+=`<button class="btn full" style="margin-top:12px" onclick="alertForm()">+ New wind alert</button><div id="alertform"></div>`;
+  if(inApp()) o+=`<button class="btn ghost full" style="margin-top:8px" onclick="testAlert()">Send a test notification</button>
+    <div class="note" style="margin-top:10px">Checked about every 3 hours in the background. <b style="color:var(--tx)">Home-screen widget:</b> long-press your home screen → Widgets → WindLine. It shows the spot you have open in the app.</div>`;
+  return o+`</div>`;
+}
+let afDirs=[];
+function alertForm(){
+  const sp=spot(); afDirs=[];
+  $('alertform').innerHTML=`<div style="margin-top:14px"><div class="field"><label>Spot</label><select id="afS">${allSpots().map(s=>`<option value="${s.id}" ${s.id===sp.id?'selected':''}>${esc(s.name)}</option>`).join('')}</select></div>
+    <div class="two"><div class="field"><label>Min wind (${wu()})</label><input id="afMin" inputmode="decimal" value="${wv(Math.max(S.minWind,12))}"></div><div class="field"><label>Max wind (${wu()})</label><input id="afMax" inputmode="decimal" value="${wv(35)}"></div></div>
+    <div class="field"><label>Wind from (tap to choose · none = any)</label><div class="chips" style="flex-wrap:wrap">${SECT.map((d,i)=>`<button class="chip" id="afd${i}" onclick="afToggle(${i})">${d}</button>`).join('')}</div></div>
+    <div class="field"><label>Look ahead</label><select id="afDays"><option value="1">Today + tomorrow</option><option value="2">2 days</option><option value="3" selected>3 days</option></select></div>
+    <button class="btn full" onclick="saveAlert()">Save alert</button></div>`;
+}
+function afToggle(i){ afDirs = afDirs.includes(i) ? afDirs.filter(x=>x!==i) : afDirs.concat(i); $('afd'+i).classList.toggle('on'); }
+function saveAlert(){
+  const f=UNIT[S.unit][0]; const min=parseFloat($('afMin').value)/f, max=parseFloat($('afMax').value)/f;
+  if(isNaN(min)||isNaN(max)||min>=max){ toast('Check the wind range'); return; }
+  ALERTS.push({id:'a'+Date.now(), spot:$('afS').value, min, max, dirs:afDirs.slice().sort(), days:+$('afDays').value, on:true});
+  LS.set('alerts',ALERTS); syncNative(); if(inApp()&&Android.requestNotifications) Android.requestNotifications(); toast('Alert saved'); render();
+}
+function toggleAlert(i){ ALERTS[i].on = ALERTS[i].on===false; LS.set('alerts',ALERTS); syncNative(); render(); }
+function delAlert(i){ ALERTS.splice(i,1); LS.set('alerts',ALERTS); syncNative(); render(); }
+function testAlert(){
+  const w=D&&D.wins[0]; const t = w ? `${dayLabel(D.hours[w.start].t)} ${hourLabel(D.hours[w.start].p.h)}: ${wv(w.avg)} ${wu()} ${dirName(w.dir)} · rig ${(gearFor(w.avg,w.gust).qSail||gearFor(w.avg,w.gust).sail)} m²` : 'This is how your wind alerts will look.';
+  Android.testNotification('Wind at '+spot().name, t); toast('Test sent');
+}
+
+// --- Update check (GitHub) ---
+const UPDATE_URL='https://raw.githubusercontent.com/helping-droid/windline/main/update.json';
+let UPD=null;
+async function checkUpdate(){
+  if(!inApp() || !Android.versionCode) return;
+  const last=LS.get('updChecked',0); if(Date.now()-last<6*3600e3 && !LS.get('updAvail',null)) return;
+  try{ const j=await getJSON(UPDATE_URL+'?t='+Date.now()); LS.set('updChecked',Date.now());
+    if(j && +j.versionCode > Android.versionCode()){ UPD=j; LS.set('updAvail',j); render(); } else LS.set('updAvail',null);
+  }catch(e){ const a=LS.get('updAvail',null); if(a && +a.versionCode>Android.versionCode()){ UPD=a; } }
+}
+function updateBanner(){
+  if(!UPD) return '';
+  return `<div class="alertbar" style="background:linear-gradient(90deg,rgba(46,230,197,.18),rgba(46,230,197,.05));border-color:rgba(46,230,197,.45);color:#c9fff3" onclick="openUrl('${esc(UPD.apk)}')"><span style="font-size:18px">⬆︎</span><div><b>WindLine ${esc(UPD.version)} is available</b>${esc(UPD.notes||'Tap to download, then install over this version.')}</div></div>`;
+}
+
+// --- In-app sources browser ---
+function viewIn(url, name){
+  if(inApp() && Android.openCam){ Android.openCam(url, name||url.replace(/^https?:\/\/(www\.)?/,'').split('/')[0], 'Inside WindLine'); return; }
+  openUrl(url);
+}
 /* ============================== NEARBY SPOTS ============================== */
 function km(a,b){ const R=6371, dl=(b.lat-a.lat)*Math.PI/180, dn=(b.lon-a.lon)*Math.PI/180;
   const x=Math.sin(dl/2)**2+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dn/2)**2; return 2*R*Math.asin(Math.sqrt(x)); }
@@ -1239,7 +1413,8 @@ function renderOB(){
       <div class="seg">${[['kn','Knots'],['kmh','km/h'],['ms','m/s'],['mph','mph']].map(u=>`<button class="${d.unit===u[0]?'on':''}" onclick="obRead();obSet('unit','${u[0]}')">${u[1]}</button>`).join('')}</div>
       <div class="sec">Temperature</div>
       <div class="seg"><button class="${d.temp==='C'?'on':''}" onclick="obRead();obSet('temp','C')">°C</button><button class="${d.temp==='F'?'on':''}" onclick="obRead();obSet('temp','F')">°F</button></div>
-      <div class="field" style="margin-top:14px"><label>Minimum wind worth sailing (${UNIT[d.unit][1]})</label><input id="obMin" inputmode="decimal" value="${Math.round(d.minWind*UNIT[d.unit][0])}"><div class="hint">${d.style==='foil'?'Foilers often go from 8–10 kn.':'Most riders on a freeride board start planing around 12–14 kn.'}</div></div>`; }
+      <div class="field" style="margin-top:14px"><label>Minimum wind worth sailing (${UNIT[d.unit][1]})</label><input id="obMin" inputmode="decimal" value="${Math.round(d.minWind*UNIT[d.unit][0])}"><div class="hint">${d.style==='foil'?'Foilers often go from 8–10 kn.':'Most riders on a freeride board start planing around 12–14 kn.'}</div></div>
+      <div class="note" style="margin-top:24px;text-align:center">WindLine is free · Developed by Apaar<br><a class="lnk" href="https://ko-fi.com/apaar" onclick="openUrl(this.href);return false">☕ Support on Ko-fi</a></div>`; }
   $('ob').innerHTML=`<div class="top"><div class="dots">${[0,1,2,3].map(i=>`<i class="${i<=st?'f':''}"></i>`).join('')}</div><h1>${title}</h1><p class="sub">${sub}</p></div>
     <div class="body">${h}</div>
     <div class="foot">${st>0?'<button class="btn ghost" style="flex:1;padding:14px" onclick="obRead();OB.step--;renderOB()">Back</button>':''}
@@ -1264,7 +1439,7 @@ function obNext(){
   if(OB.step===2 && !d.sails.length){ toast('Add at least one sail'); return; }
   if(OB.step<3){ OB.step++; renderOB(); $('ob').querySelector('.body').scrollTop=0; return; }
   Object.assign(S,{weight:d.weight,weightUnit:d.weightUnit,skill:d.skill,style:d.style,sails:d.sails,boards:d.boards,unit:d.unit,temp:d.temp,minWind:d.minWind,home:d.home,homeName:d.homeName});
-  LS.set('settings',S); LS.set('onboarded',true); $('ob').classList.remove('on'); OB=null; NB=null;
+  LS.set('settings',S); LS.set('onboarded',true); setTimeout(syncNative,0); $('ob').classList.remove('on'); OB=null; NB=null;
   if(d.spot!==spotId) pickSpot(d.spot); else { if(D) D=reprocess(); render(); }
   toast('All set — recommendations tuned to you');
 }
@@ -1280,7 +1455,7 @@ async function load(force){
     const raw=await fetchAll(sp);
     if(!raw.models.some(m=>m.j)) throw new Error('No model data');
     D=Object.assign(process(raw,sp),{raw,offline:false}); LS.set(key,raw);
-    loadExtras(sp, force);
+    loadExtras(sp, force); pushWidget();
   }catch(e){
     if(D){ D.offline=true; toast('Offline — showing saved forecast'); }
     else toast('Could not load forecast. Check your connection.');
@@ -1302,6 +1477,7 @@ setInterval(()=>{ if(D && Date.now()-D.fetched>30*60000 && !loading) load(true);
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden && D && Date.now()-D.fetched>20*60000) load(true); });
 render(); load(false);
 if(!LS.get('onboarded',false)) startOnboarding();
+syncNative(); checkUpdate(); setTimeout(pushWidget,1500);
 if(!inApp() && 'serviceWorker' in navigator && location.protocol==='https:'){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
 </script>
 </body>
